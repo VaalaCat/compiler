@@ -47,6 +47,8 @@ def read(**kwargs):
 # （4）	保存符号表和TOKEN串表（如：文本文件）；
 # （5）	遇到错误时可显示提示信息，然后跳过错误部分继续进行分析。
 def lexer(sourceCode):
+    # 添加结束符
+    sourceCode += "$"
     finalTokens = []
     symbols = []
     previousLetters = ""
@@ -356,5 +358,5 @@ if __name__ == "__main__":
         exit(1)
     tokens, symbols = lexer(sourceCode)
     outputTokens(tokens, "token.out")
-    outputSymbols(symbols, "symble.out")
+    outputSymbols(symbols, "symbol.out")
     finalReport()
