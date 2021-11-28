@@ -127,7 +127,7 @@ def lexer(sourceCode):
                 if idx == -1:
                     addr = len(symbols)
                     symbols.append(
-                        {"addr": addr, "value": previousLetters, "type": "id"})
+                        {"addr": str(addr), "value": previousLetters, "type": "id"})
                     idx = addr
                 finalTokens.append(("id", str(idx)))
                 if maybeOP(i):
@@ -142,7 +142,7 @@ def lexer(sourceCode):
                 if idx == -1:
                     addr = len(symbols)
                     symbols.append(
-                        {"addr": addr, "value": previousLetters, "type": "id"})
+                        {"addr": str(addr), "value": previousLetters, "type": "id"})
                     idx = addr
                 finalTokens.append(("id", str(idx)))
                 previousLetters = i
@@ -163,8 +163,8 @@ def lexer(sourceCode):
             elif isSpacer(i) or maybeOP(i):
                 addr = len(symbols)
                 symbols.append(
-                    {"addr": addr, "value": previousLetters, "type": "digits"})
-                finalTokens.append(("digits", addr))
+                    {"addr": str(addr), "value": previousLetters, "type": "digits"})
+                finalTokens.append(("digits", str(addr)))
                 if maybeOP(i):
                     previousLetters = i
                 else:
@@ -175,8 +175,8 @@ def lexer(sourceCode):
                 lexWarning(cnt, line, previousLetters+i)
                 addr = len(symbols)
                 symbols.append(
-                    {"addr": addr, "value": previousLetters, "type": "digits"})
-                finalTokens.append(("digits", addr))
+                    {"addr": str(addr), "value": previousLetters, "type": "digits"})
+                finalTokens.append(("digits", str(addr)))
                 previousLetters = i
                 continue
     return finalTokens, symbols
