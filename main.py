@@ -14,12 +14,12 @@ def read(**kwargs):
     content = ""
     if "mode" in kwargs and kwargs["mode"] == 'file':
         if "filepath" in kwargs and kwargs["filepath"] is None:
-            print("Error:", "Empty File Path")
+            print("Error:", "Empty File Path.")
             return False
         try:
             f = open(kwargs["filepath"])
         except:
-            print("Error:", "Open file failed, please confirm your filepath is right")
+            print("Error:", "Open file failed, please confirm your filepath is right.")
             return False
 
         content = f.read()
@@ -49,10 +49,14 @@ def read(**kwargs):
 def lexer(sourceCode):
     finalTokens = []
     previousLetters = ""
-    # cnt用于错误提示定位
-    cnt = 0
+    # cnt,line用于错误提示定位
+    cnt = 1
+    line = 1
     for i in sourceCode:
         cnt += 1
+        if i == "\n":
+            line += 1
+            cnt = 1
         # 关键词是最优先的
         if isKeyword(previousLetters):
             finalTokens.append(("Keyword", previousLetters))
@@ -86,7 +90,7 @@ def lexer(sourceCode):
             # 如果后面不是等号或者合法的跟随字，那就报错并询问要不要跳过它继续处理
             else:
                 # 如果选择跳过，那就清空记录，并且下一个词
-                if lexErrMsg(cnt, previousLetters):
+                if lexErrMsg(cnt, line, previousLetters):
                     previousLetters = ""
                     continue
                 # 如果选择不跳过，那就错误退出
@@ -123,7 +127,7 @@ def lexer(sourceCode):
                 continue
             # 读到其它东西先报个Warning然后存token
             else:
-                lexWarning(cnt, previousLetters+i)
+                lexWarning(cnt, line, previousLetters+i)
                 finalTokens.append(("id", previousLetters))
                 previousLetters = i
                 continue
@@ -149,16 +153,25 @@ def lexer(sourceCode):
                 continue
             # 如果读到其它东西报Warning然后存
             else:
-                lexWarning(cnt, previousLetters+i)
+                lexWarning(cnt, line, previousLetters+i)
                 finalTokens.append(("digits", previousLetters))
                 previousLetters = i
                 continue
     return finalTokens
 
 
-def outputTokens(tokens):
-    for i in tokens:
-        print(i)
+def outputTokens(tokens, filepath=""):
+    if filepath == "":
+        for i in tokens:
+            print(i)
+    else:
+        try:
+            print("Writing tokens to file: " + filepath)
+            f = open(filepath, "w")
+            for i in tokens:
+                print(i, file=f)
+        except:
+            print("Error:", "Filepath error!")
 
 
 def isLetter(lt):
@@ -198,12 +211,12 @@ def isSpacer(lt):
     return False
 
 
-def lexErrMsg(cur=0, content=""):
+def lexErrMsg(cur=0, line=0, content=""):
     global errCnt
     errCnt += 1
     spaceser()
     print(
-        f"Error {errCnt}:", f"there's a error at cur {cur} which is:")
+        f"Error {errCnt}:", f"there's a error at line {line} cur {cur} which is:")
 
     print(content)
     print("Please check your code, ignore it and continue? (Y/N): ", end="")
@@ -221,13 +234,14 @@ def lexErrMsg(cur=0, content=""):
             print("Please input Y/N:", end="")
 
 
-def lexWarning(cur=0, content=""):
+def lexWarning(cur=0, line=0, content=""):
     global warCnt
     warCnt += 1
     spaceser()
-    print(f"Warning {warCnt}:", f"There's a warning at cur {cur} which is:")
+    print(f"Warning {warCnt}:",
+          f"There's a warning at line {line} cur {cur} which is:")
     print(content)
-    print("Vaala's Lexer try to continue, the ans may be not right, check your code")
+    print("Vaala's Lexer try to continue, the ans may be not right, check your code.")
     spaceser()
 
 # （2）	提供源程序输入界面；
@@ -267,6 +281,15 @@ def spaceser():
     print("=========================================================")
 
 
+def finalReport():
+    if errCnt == 0 and warCnt == 0:
+        print("0 Warning, 0 Error, Great! Good to go.")
+    else:
+        warMsg = "Warning"if warCnt == 1 else "Warnings"
+        errMsg = "Error"if errCnt == 1 else "Errors"
+        print(f"{warCnt} {warMsg}, {errCnt} {errMsg}, OH NO.")
+
+
 def test(**kwargs):
     print(kwargs)
 
@@ -291,4 +314,5 @@ if __name__ == "__main__":
     if sourceCode == False:
         exit(1)
     tokens = lexer(sourceCode)
-    outputTokens(tokens)
+    outputTokens(tokens, "a.out")
+    finalReport()
