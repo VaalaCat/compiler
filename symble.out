@@ -1,0 +1,8 @@
+{'addr': 0, 'value': 'a', 'type': 'id'}
+{'addr': 1, 'value': 'b', 'type': 'id'}
+{'addr': 2, 'value': 'c', 'type': 'id'}
+{'addr': 3, 'value': '2', 'type': 'digits'}
+{'addr': 4, 'value': '1', 'type': 'digits'}
+{'addr': 5, 'value': '1', 'type': 'digits'}
+{'addr': 6, 'value': '2', 'type': 'digits'}
+{'addr': 7, 'value': '3', 'type': 'digits'}

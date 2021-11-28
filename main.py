@@ -48,6 +48,7 @@ def read(**kwargs):
 # （5）	遇到错误时可显示提示信息，然后跳过错误部分继续进行分析。
 def lexer(sourceCode):
     finalTokens = []
+    symbols = []
     previousLetters = ""
     # cnt,line用于错误提示定位
     cnt = 1
@@ -106,7 +107,7 @@ def lexer(sourceCode):
             continue
         # 到这里OP就处理完了，接下来处理id
         # id是单个letter或letter组合
-        # 如果刚开始读就直接开始处理，
+        # 如果刚开始读就直接开始处理
         if previousLetters == "":
             # 读到字母就继续
             if isLetter(i):
@@ -119,7 +120,14 @@ def lexer(sourceCode):
                 continue
             # 读到空格或符号代表终结
             elif isSpacer(i) or maybeOP(i):
-                finalTokens.append(("id", previousLetters))
+                # 如果没填过这个符号
+                idx = lookup(symbols, previousLetters)
+                if idx == -1:
+                    addr = len(symbols)
+                    symbols.append(
+                        {"addr": addr, "value": previousLetters, "type": "id"})
+                    idx = addr
+                finalTokens.append(("id", str(idx)))
                 if maybeOP(i):
                     previousLetters = i
                 else:
@@ -128,7 +136,13 @@ def lexer(sourceCode):
             # 读到其它东西先报个Warning然后存token
             else:
                 lexWarning(cnt, line, previousLetters+i)
-                finalTokens.append(("id", previousLetters))
+                idx = lookup(symbols, previousLetters)
+                if idx == -1:
+                    addr = len(symbols)
+                    symbols.append(
+                        {"addr": addr, "value": previousLetters, "type": "id"})
+                    idx = addr
+                finalTokens.append(("id", str(idx)))
                 previousLetters = i
                 continue
         # id处理完过后我们来处理digits
@@ -145,7 +159,10 @@ def lexer(sourceCode):
                 continue
             # 如果是空格或者符号那就存
             elif isSpacer(i) or maybeOP(i):
-                finalTokens.append(("digits", previousLetters))
+                addr = len(symbols)
+                symbols.append(
+                    {"addr": addr, "value": previousLetters, "type": "digits"})
+                finalTokens.append(("digits", addr))
                 if maybeOP(i):
                     previousLetters = i
                 else:
@@ -154,10 +171,20 @@ def lexer(sourceCode):
             # 如果读到其它东西报Warning然后存
             else:
                 lexWarning(cnt, line, previousLetters+i)
-                finalTokens.append(("digits", previousLetters))
+                addr = len(symbols)
+                symbols.append(
+                    {"addr": addr, "value": previousLetters, "type": "digits"})
+                finalTokens.append(("digits", addr))
                 previousLetters = i
                 continue
-    return finalTokens
+    return finalTokens, symbols
+
+
+def lookup(symbols, value):
+    for i in range(len(symbols)):
+        if symbols[i]["value"] == value:
+            return i
+    return -1
 
 
 def outputTokens(tokens, filepath=""):
@@ -169,6 +196,20 @@ def outputTokens(tokens, filepath=""):
             print("Writing tokens to file: " + filepath)
             f = open(filepath, "w")
             for i in tokens:
+                print(i, file=f)
+        except:
+            print("Error:", "Filepath error!")
+
+
+def outputSymbols(symbols, filepath=""):
+    if filepath == "":
+        for i in symbols:
+            print(i)
+    else:
+        try:
+            print("Writing symbols to file: " + filepath)
+            f = open(filepath, "w")
+            for i in symbols:
                 print(i, file=f)
         except:
             print("Error:", "Filepath error!")
@@ -313,6 +354,7 @@ if __name__ == "__main__":
         sourceCode = read(mode="standard")
     if sourceCode == False:
         exit(1)
-    tokens = lexer(sourceCode)
-    outputTokens(tokens, "a.out")
+    tokens, symbols = lexer(sourceCode)
+    outputTokens(tokens, "token.out")
+    outputSymbols(symbols, "symble.out")
     finalReport()
