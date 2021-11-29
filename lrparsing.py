@@ -59,7 +59,7 @@ followSet = {
     "T": ["==", ">", "<", "+", "-", "*", "/", ";", ")"],
     "P_": ["$"]
 }
-
+LOGLEVEL = 0
 # 初始化状态，也就是加个点
 
 
@@ -266,6 +266,29 @@ def outputStatus(g):
     print("")
 
 
+def outputSymbolStack(stack):
+    for i in stack:
+        if isinstance(i, list):
+            if i[0] == 'OP' or i[0] == 'Keyword':
+                print(i[1], end=", ")
+            else:
+                print(i[0], end=", ")
+        else:
+            print(i, end=", ")
+
+
+def outputStackStatus(symbolStacks, statusStacks, tmpG=""):
+    if LOGLEVEL < 2:
+        return
+    lex.spaceser()
+    print("symbolStacks: [", end="")
+    outputSymbolStack(symbolStacks)
+    print("]")
+    print("statusStacks:", statusStacks)
+    if tmpG != "":
+        print("useReduce:", tmpG)
+
+
 def outputStatusSet(status):
     lex.spaceser()
     for i in status:
@@ -324,6 +347,10 @@ def getNextStatus(token, statusCur, mode=""):
                 exit(1)
         except:
             if mode == "try":
+                if LOGLEVEL >= 1:
+                    print("INFO:", "Vaala's LR machine fix an Error at:")
+                    print(
+                        f"line {token[2]['line']} cur {token[2]['cur']}: {token[1]}")
                 return []
             exit(1)
     else:
@@ -332,7 +359,7 @@ def getNextStatus(token, statusCur, mode=""):
         else:
             return kwd
     if len(kwd) > 1:
-        lex.lexWarning(kwd[2]["cur"], kwd[2]["line"], kwd[1])
+        lex.lexWarning(token[2]["cur"], token[2]["line"], token[1])
     elif len(kwd) == 0:
         lex.spaceser()
         print("Fatal Error:",
@@ -355,21 +382,24 @@ def parseToken(tokens):
     statusStacks.append(0)
     symbolStacks.append("$")
     # 在终结之前一直读取
-    tmpSymbol = tokenBuffer.pop(0)
-    symbolStacks.append(tmpSymbol)
-    nextStatus = getNextStatus(tmpSymbol, statusStacks[-1])
-    statusStacks.append(nextStatus)
     while len(tokenBuffer) > 0:
         tmpSymbol = tokenBuffer.pop(0)
         # 如果读到终结符就停止
         if tmpSymbol[0] == "stop":
             break
         # LR表第一个括号是状态，第二个括号是输入
+        nextStatus = getNextStatus(tmpSymbol, statusStacks[-1], mode="try")
+        if isinstance(nextStatus, int):
+            symbolStacks.append(tmpSymbol)
+            statusStacks.append(nextStatus)
+
+        outputStackStatus(symbolStacks, statusStacks)
+
         # 如果无法归约则读入符号，使用LR分析表转到对应状态
         # 归约在前面，如果可以归约就一直归约
         while True:
             nextStatus = getNextStatus(
-                "$", statusStacks[-1], "try")
+                tokenBuffer[0], statusStacks[-1], "try")
             if not isinstance(nextStatus, str):
                 break
             # 获取归约所用的文法
@@ -382,20 +412,11 @@ def parseToken(tokens):
                 if tmpV[0] != "":
                     symbolStacks.pop()
                     statusStacks.pop()
+                    outputStackStatus(symbolStacks, statusStacks, tmpG)
             symbolStacks.append(tmpK)
             nextStatus = getNextStatus(tmpK, statusStacks[-1])
             statusStacks.append(nextStatus)
-            lex.spaceser()
-            print("symbolStacks:", symbolStacks)
-            print("statusStacks:", statusStacks)
-            print("useReduce:", tmpG)
-        symbolStacks.append(tmpSymbol)
-        nextStatus = getNextStatus(tmpSymbol, statusStacks[-1])
-        statusStacks.append(nextStatus)
-
-        lex.spaceser()
-        print("symbolStacks:", symbolStacks)
-        print("statusStacks:", statusStacks)
+            outputStackStatus(symbolStacks, statusStacks, tmpG)
 
 
 def readFile(tokenFilepath="token.out", symbolFilepath="symbol.out"):
@@ -419,6 +440,7 @@ def readFile(tokenFilepath="token.out", symbolFilepath="symbol.out"):
 
 
 if __name__ == "__main__":
+    LOGLEVEL = 0
     a, b = readFile()
     # genStatusSet()
     initStatus()
@@ -428,4 +450,5 @@ if __name__ == "__main__":
     # outputStatusSet(statusSet[0]+extendStatus(statusSet[0]))
     genStatusSet(0)
     parseToken(a)
+    lex.finalReport()
     # print(firstSet)
