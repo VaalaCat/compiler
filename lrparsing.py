@@ -34,6 +34,9 @@ grammar = [
     {"F": ["id"]},
     {"F": ["digits"]}
 ]
+symbols = []
+tokens = []
+midCode = []
 originStatus = []
 statusSet = [[]]
 analyzerTable = {}
@@ -269,7 +272,7 @@ def outputStatus(g):
 def outputSymbolStack(stack):
     for i in stack:
         if isinstance(i, list):
-            if i[0] == 'OP' or i[0] == 'Keyword':
+            if i[0] == 'OP' or i[0] == 'Keyword' or i[0] == 'mid':
                 print(i[1], end=", ")
             else:
                 print(i[0], end=", ")
@@ -345,6 +348,8 @@ def getNextStatus(token, statusCur, mode=""):
                 kwd = analyzerTable[statusCur][token[0]]
             elif token[0] == "digits":
                 kwd = analyzerTable[statusCur][token[0]]
+            elif token[0] == "mid":
+                kwd = analyzerTable[statusCur][token[1]]
             else:
                 exit(1)
         except:
@@ -384,12 +389,11 @@ def parseToken(tokens):
     # 初始化栈
     statusStacks.append(0)
     symbolStacks.append("$")
+    # 初始化中间代码起始地址
+    nextAddr = 0
     # 在终结之前一直读取
     while len(tokenBuffer) > 0:
         tmpSymbol = tokenBuffer.pop(0)
-        # 如果读到终结符就停止
-        if tmpSymbol[0] == "stop":
-            break
         # LR表第一个括号是状态，第二个括号是输入
         nextStatus = getNextStatus(tmpSymbol, statusStacks[-1], mode="try")
         if isinstance(nextStatus, int):
@@ -416,13 +420,19 @@ def parseToken(tokens):
             # 使用文法归约
             tmpK = getGrammarKey(tmpG)
             tmpV = getGrammarValue(tmpG)
+            # 保存一下弹出来的符号
+            reducedSymbols = []
             for i in range(len(tmpV)):
                 # 依次弹栈
                 if tmpV[0] != "":
-                    symbolStacks.pop()
+                    tmpS = symbolStacks.pop()
                     statusStacks.pop()
+                    reducedSymbols.insert(0, tmpS)
                     outputStackStatus(symbolStacks, statusStacks, tmpG)
-            symbolStacks.append(tmpK)
+            # 确定归约的规则后，使用对应的语义规则对其进行处理
+            value = genCode(tmpG, nextAddr, reducedSymbols)
+            # 弹完了记得把新的装进来，这里装进去多一个元素是为了携带信息
+            symbolStacks.append(["mid", tmpK, value])
             nextStatus = getNextStatus(tmpK, statusStacks[-1])
             statusStacks.append(nextStatus)
             outputStackStatus(symbolStacks, statusStacks, tmpG)
@@ -432,8 +442,8 @@ def readFile(tokenFilepath="token.out", symbolFilepath="symbol.out"):
     tokenFile = open(tokenFilepath, "r").read().split("\n")
     symbolFile = open(symbolFilepath, "r").read().replace(
         "'", "\"").split("\n")
-    tokens = []
-    symbols = []
+    global tokens
+    global symbols
     for line in tokenFile:
         if line == "":
             continue
@@ -448,18 +458,107 @@ def readFile(tokenFilepath="token.out", symbolFilepath="symbol.out"):
     return [tokens, symbols]
 
 
+# 目 标 机：及其兼容处理器
+# 中间代码：三地址码
+# 主要数据结构：三地址码表、符号表
+#
+# 语义分析内容要求：
+# 1. 变量说明语句
+# 2. 赋值语句
+# 3. 控制语句任选一种
+#
+# 其它要求：
+# 1. 将词法分析（扫描器）作为子程序，供语法、语义程序调用；
+# 2. 使用语法制导的语义翻译方法；
+# 3. 编程语言自定；
+# 4. 提供源程序输入界面；
+# 5. 目标代码生成暂不做；
+# 6. 编译后，可查看TOKEN串、符号表、三地址码表；
+# 7. 主要数据结构：产生式表、符号表、三地址码表。
+
+# 在生成代码的时候需要查找符号表中的内容
+def findSymbol(addr):
+    for i in symbols:
+        if addr == i["addr"]:
+            return i
+    return None
+
+# 中间代码的生成需要语法分析的同时进行语义分析，
+# 在归约的时候生成代码，这个时候把代码给塞到栈里
+
+
+def outputCode():
+    pass
+
+# 传入文法和空闲地址以及被归约的各个符号属性，返回归约符号的属性
+
+
+def genCode(g, nextAddr, reducedSymbols):
+    # 先从简单的开始
+    tmpK = getGrammarKey(g)
+    tmpV = getGrammarValue(g)
+    # F -> id
+    # F -> digits
+    # 单纯的标识符号，如果使用这两个产生式归约的话传递一个值就行了
+    # 要注意的是这个 id 标识符和数字都需要去符号表中查找，把找到的 value 赋值给 F.name
+    if tmpK == "F":
+        if reducedSymbols[0][0] == "id" or reducedSymbols[0][0] == "digits":
+            # token中第二个值为符号表的入口地址
+            return {"value": findSymbol(reducedSymbols[0][1])["value"]}
+    # F -> (E)
+    # 接下来的要复杂一点，我们之前处理了简单的F 
+    pass
+
+
+# 对于每一个文法我们需要构造一个中间代码生成规则
+# P_ -> P
+
+# P -> D
+
+# D -> e
+# D -> Lid;D
+# 填符号表，在 id 的值类型填写 valuetype为 L.valuetype
+
+# L -> int
+# L.valuetype = int
+# L -> float
+# L.valuetype = float
+
+# S -> id = E;
+# 生成赋值语句，在符号表中查找名字生成中间代码
+# S.code = id.value = E.finalVar
+
+# S -> if(C)S
+# 使用回填，C是布尔表达式
+
+# S -> if(C)SelseS
+# S -> while(C)S
+# S -> SS
+
+# C -> E > E
+# C -> E < E
+# C -> E == E
+# 对于布尔表达式有
+# C.truelist.append(nextAddr)
+# C.truelist.append(nextAddr+1)
+# C.code = if E[0].addr OP E[1].addr goto __
+# C.code += goto __
+
+# E -> E+T
+# E -> E-T
+# E -> T
+# T -> F
+# T -> T*F
+# T -> T/F
+
 if __name__ == "__main__":
     lex.helloFunc()
     lex.spaceser()
-    LOGLEVEL = 0
-    a, b = readFile()
-    # genStatusSet()
+    sourceCode = lex.read(mode="file", filepath="test2.cpp")
+    tokens, symbols = lex.lexer(sourceCode)
+    LOGLEVEL = 2
+    # a, b = readFile()
     initStatus()
-    # outputStatus(statusSet[0][1])
-    # outputStatusSet(statusSet[0])
-    # print(getAllGrammarFor("D"))
-    # outputStatusSet(statusSet[0]+extendStatus(statusSet[0]))
     genStatusSet(0)
-    parseToken(a)
+    parseToken(tokens)
     lex.finalReport()
-    # print(firstSet)
