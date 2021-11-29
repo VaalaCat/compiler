@@ -315,6 +315,8 @@ def fillAnalysTable(statusCur, inputSymbol, nextStatus):
         tmpG = grammar[int(nextStatus.replace("r", ""))]
         tmpK = getGrammarKey(tmpG)
         for i in followSet[tmpK]:
+            if i == "else":
+                continue
             if i not in analyzerTable[statusCur]:
                 analyzerTable[statusCur][i] = []
                 analyzerTable[statusCur][i].append(nextStatus)
@@ -359,7 +361,8 @@ def getNextStatus(token, statusCur, mode=""):
         else:
             return kwd
     if len(kwd) > 1:
-        lex.lexWarning(token[2]["cur"], token[2]["line"], token[1])
+        if isinstance(token, list):
+            lex.lexWarning(token[2]["cur"], token[2]["line"], token[1])
     elif len(kwd) == 0:
         lex.spaceser()
         print("Fatal Error:",
@@ -374,7 +377,7 @@ def parseToken(tokens):
     # 在得到项集族和分析表后，我们需要使用分析栈对Token串进行处理
     tokenBuffer = copy.deepcopy(tokens)
     # 我们先在输入流中加一个结束符
-    tokenBuffer.append(("stop", "$"))
+    tokenBuffer.append("$")
     # 创建符号栈和状态栈
     statusStacks = []
     symbolStacks = []
@@ -398,9 +401,15 @@ def parseToken(tokens):
         # 如果无法归约则读入符号，使用LR分析表转到对应状态
         # 归约在前面，如果可以归约就一直归约
         while True:
+            if nextStatus == "ACCEPT":
+                print("OHHHHHH!")
+                break
             nextStatus = getNextStatus(
                 tokenBuffer[0], statusStacks[-1], "try")
             if not isinstance(nextStatus, str):
+                break
+            if nextStatus == "ACCEPT":
+                print("ACCEPT")
                 break
             # 获取归约所用的文法
             tmpG = grammar[int(nextStatus[1:])]
@@ -440,6 +449,8 @@ def readFile(tokenFilepath="token.out", symbolFilepath="symbol.out"):
 
 
 if __name__ == "__main__":
+    lex.helloFunc()
+    lex.spaceser()
     LOGLEVEL = 0
     a, b = readFile()
     # genStatusSet()
