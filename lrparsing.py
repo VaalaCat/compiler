@@ -7,6 +7,8 @@ import json
 import lex
 import copy
 
+actionSymbol = ["=", "<", ">", "-", "+", ";", "*", "/", "==", "(", ")", "$",
+                "while", "if", "else", "id", "digits", "float", "int"]
 grammar = [
     {"P_": ["P"]},
     {"P": ["D", "S"]},
@@ -70,6 +72,15 @@ def genStatusSet(statusCur):
         if i["next"] not in nextSymbolMap:
             nextSymbolMap[i["next"]] = []
         nextSymbolMap[i["next"]].append(i["idx"])
+    # 如果没有下一个符号
+    if nextSymbolMap == {} and getGrammarValue(statusSet[statusCur][0])[-1] == ".":
+        # 读到P代表已经接受了
+        if getGrammarKey(statusSet[statusCur][0]) == "P_":
+            fillAnalysTable(statusCur, "$", ".")
+        else:
+            tmpK = getGrammarKey(statusSet[statusCur][0])
+            tmpV = getGrammarValue(statusSet[statusCur][0])[:-1]
+            fillAnalysTable(statusCur, "$", f"r{getPosition({tmpK: tmpV})}")
     # k是下一个符号，v是状态中对应产生式的序号表
     for k, v in nextSymbolMap.items():
         tmpStatus = []
@@ -96,11 +107,11 @@ def genStatusSet(statusCur):
         if -1 == nxtCur:
             # 如果是新状态，那么新状态序号就是statusSet没有append之前的长度
             fillAnalysTable(statusCur, k, len(statusSet))
-            statusSet.append(tmpStatus)
             # 如果产生的新状态可归约，那么需要填写新状态的可归约情况
             if rG != {}:
-                fillAnalysTable(len(statusSet), getGrammarKey(rG),
+                fillAnalysTable(len(statusSet), getGrammarValue(rG)[-1],
                                 f"r{getPosition(rG)}")
+            statusSet.append(tmpStatus)
         # 如果不是新状态，那么就是查找函数返回的位置
         else:
             fillAnalysTable(statusCur, k, nxtCur)
@@ -233,9 +244,49 @@ def fillAnalysTable(statusCur, inputSymbol, nextStatus):
     if statusCur not in analyzerTable:
         analyzerTable[statusCur] = {}
     # 然后填写状态表
+    if isinstance(nextStatus, str):
+        if nextStatus == ".":
+            analyzerTable[statusCur]["$"] = ["ACCEPT"]
+            return
+        for i in actionSymbol:
+            if i not in analyzerTable[statusCur]:
+                analyzerTable[statusCur][i] = []
+                analyzerTable[statusCur][i].append(nextStatus)
+            else:
+                if analyzerTable[statusCur][i][-1] == nextStatus:
+                    continue
+                else:
+                    analyzerTable[statusCur][i].append(nextStatus)
+        return
     if inputSymbol not in analyzerTable[statusCur]:
         analyzerTable[statusCur][inputSymbol] = []
     analyzerTable[statusCur][inputSymbol].append(nextStatus)
+
+# 使用分析栈进行分析
+
+
+def parseToken(tokens):
+    # 在得到项集族和分析表后，我们需要使用分析栈对Token串进行处理
+    tokenBuffer = copy.deepcopy(tokens)
+    # 我们先在输入流中加一个结束符
+    tokenBuffer.append(("stop", "$"))
+    # 创建符号栈和状态栈
+    statusStacks = []
+    symbolStacks = []
+    # 初始化栈
+    statusStacks.append(0)
+    symbolStacks.append("$")
+    # 在终结之前一直读取
+    while len(tokenBuffer) > 0:
+        tmpSymbol = tokenBuffer.pop(0)
+        # 如果读到终结符就停止
+        if tmpSymbol[0] == "stop":
+            break
+        # LR表第一个括号是状态，第二个括号是输入
+        # 读入符号，使用LR分析表转到对应状态
+        symbolStacks.append(tmpSymbol)
+        nextStatus = analyzerTable[statusStacks[-1]][tmpSymbol]
+        statusStacks.append(nextStatus)
 
 
 def readFile(tokenFilepath="token.out", symbolFilepath="symbol.out"):
