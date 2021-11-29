@@ -54,10 +54,10 @@ followSet = {
     "E": ["==", ">", "<", "+", "-", ";", ")"],
     "F": ["==", ">", "<", "+", "-", "*", "/", ";", ")"],
     "L": ["id"],
-    "P": [""],
-    "S": ["else", ";", ""],
+    "P": ["$"],
+    "S": ["else", ";", "$"],
     "T": ["==", ">", "<", "+", "-", "*", "/", ";", ")"],
-    "P_": [""]
+    "P_": ["$"]
 }
 
 # 初始化状态，也就是加个点
@@ -284,11 +284,14 @@ def fillAnalysTable(statusCur, inputSymbol, nextStatus):
     if statusCur not in analyzerTable:
         analyzerTable[statusCur] = {}
     # 然后填写状态表
+    # 如果可以归约，将归约的产生式左部的follow集填写上归约标志
     if isinstance(nextStatus, str):
         if nextStatus == ".":
             analyzerTable[statusCur]["$"] = ["ACCEPT"]
             return
-        for i in actionSymbol:
+        tmpG = grammar[int(nextStatus.replace("r", ""))]
+        tmpK = getGrammarKey(tmpG)
+        for i in followSet[tmpK]:
             if i not in analyzerTable[statusCur]:
                 analyzerTable[statusCur][i] = []
                 analyzerTable[statusCur][i].append(nextStatus)
@@ -393,7 +396,6 @@ def parseToken(tokens):
         lex.spaceser()
         print("symbolStacks:", symbolStacks)
         print("statusStacks:", statusStacks)
-        print("useReduce:", tmpG)
 
 
 def readFile(tokenFilepath="token.out", symbolFilepath="symbol.out"):
@@ -425,5 +427,5 @@ if __name__ == "__main__":
     # print(getAllGrammarFor("D"))
     # outputStatusSet(statusSet[0]+extendStatus(statusSet[0]))
     genStatusSet(0)
-    # parseToken(a)
-    print(firstSet)
+    parseToken(a)
+    # print(firstSet)

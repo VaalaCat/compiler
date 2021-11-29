@@ -10,6 +10,9 @@ if __name__ == '__main__':
     # print(json.dumps(lrparsing.analyzerTable), file=f)
     for k, v in lrparsing.analyzerTable.items():
         print(k, ":", v, file=f)
+        for kk, vv in v.items():
+            if len(vv) > 1:
+                print(kk, vv)
     for k, v in lrparsing.analyzerTable.items():
         l.append(k)
     l.sort()
