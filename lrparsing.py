@@ -37,6 +37,8 @@ grammar = [
 originStatus = []
 statusSet = [[]]
 analyzerTable = {}
+firstSet = {}
+followSet = {}
 
 # 初始化状态，也就是加个点
 
@@ -249,8 +251,29 @@ def outputStatusSet(status):
     for i in status:
         outputStatus(i)
 
+# 递归求First集
+
+
+def getFirst(symbol):
+    global firstSet
+    if symbol in actionSymbol:
+        firstSet[symbol] = [symbol]
+        return symbol
+    tmpGs = getAllGrammarFor(symbol)
+    for i in tmpGs:
+        tmpK = getGrammarKey(i)
+        tmpV = getGrammarValue(i)[1:]
+        if tmpK not in firstSet:
+            firstSet[tmpK] = []
+        if len(tmpV) == 0:
+            firstSet[tmpK].append("$")
+            return "$"
+        for j in tmpV:
+            firstSet[tmpK].append(getFirst(j))
 
 # 创建LR分析表
+
+
 def fillAnalysTable(statusCur, inputSymbol, nextStatus):
     # LR分析表接受当前状态和文法符号的输入，按不同的情况有三种结果：
     # 1. 文法符号为非终结符，需要转移到对应状态
@@ -402,4 +425,5 @@ if __name__ == "__main__":
     # print(getAllGrammarFor("D"))
     # outputStatusSet(statusSet[0]+extendStatus(statusSet[0]))
     genStatusSet(0)
-    parseToken(a)
+    # parseToken(a)
+    getFirst("P_")

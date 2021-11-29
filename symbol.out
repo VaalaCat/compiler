@@ -1,0 +1,8 @@
+{'addr': '0', 'value': 'a', 'type': 'id', 'line': 1, 'cur': 7}
+{'addr': '1', 'value': 'b', 'type': 'id', 'line': 2, 'cur': 7}
+{'addr': '2', 'value': 'c', 'type': 'id', 'line': 3, 'cur': 7}
+{'addr': '3', 'value': '2', 'type': 'digits', 'line': 4, 'cur': 7}
+{'addr': '4', 'value': '1', 'type': 'digits', 'line': 5, 'cur': 7}
+{'addr': '5', 'value': '1', 'type': 'digits', 'line': 7, 'cur': 5}
+{'addr': '6', 'value': '2', 'type': 'digits', 'line': 9, 'cur': 5}
+{'addr': '7', 'value': '3', 'type': 'digits', 'line': 9, 'cur': 10}
