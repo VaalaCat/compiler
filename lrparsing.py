@@ -37,8 +37,28 @@ grammar = [
 originStatus = []
 statusSet = [[]]
 analyzerTable = {}
-firstSet = {}
-followSet = {}
+firstSet = {
+    "P_": ["id", "if", "while", "float", "(", ""],
+    "P": ["id", "if", "while", "float", "(", ""],
+    "D": ["float", "int", ""],
+    "L": ["int", "float"],
+    "S": ["id", "if", "while"],
+    "C": ["(", "id", "digits"],
+    "E": ["(", "id", "digits"],
+    "T": ["(", "id", "digits"],
+    "F": ["(", "id", "digits"]
+}
+followSet = {
+    "C": [")"],
+    "D": ["if", "while", "id"],
+    "E": ["==", ">", "<", "+", "-", ";", ")"],
+    "F": ["==", ">", "<", "+", "-", "*", "/", ";", ")"],
+    "L": ["id"],
+    "P": [""],
+    "S": ["else", ";", ""],
+    "T": ["==", ">", "<", "+", "-", "*", "/", ";", ")"],
+    "P_": [""]
+}
 
 # 初始化状态，也就是加个点
 
@@ -251,26 +271,6 @@ def outputStatusSet(status):
     for i in status:
         outputStatus(i)
 
-# 递归求First集
-
-
-def getFirst(symbol):
-    global firstSet
-    if symbol in actionSymbol:
-        firstSet[symbol] = [symbol]
-        return symbol
-    tmpGs = getAllGrammarFor(symbol)
-    for i in tmpGs:
-        tmpK = getGrammarKey(i)
-        tmpV = getGrammarValue(i)[1:]
-        if tmpK not in firstSet:
-            firstSet[tmpK] = []
-        if len(tmpV) == 0:
-            firstSet[tmpK].append("$")
-            return "$"
-        for j in tmpV:
-            firstSet[tmpK].append(getFirst(j))
-
 # 创建LR分析表
 
 
@@ -426,4 +426,4 @@ if __name__ == "__main__":
     # outputStatusSet(statusSet[0]+extendStatus(statusSet[0]))
     genStatusSet(0)
     # parseToken(a)
-    getFirst("P_")
+    print(firstSet)
