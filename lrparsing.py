@@ -34,6 +34,7 @@ grammar = [
 ]
 originStatus = []
 statusSet = [[]]
+analyzerTable = {}
 
 # 初始化状态，也就是加个点
 
@@ -41,7 +42,7 @@ statusSet = [[]]
 def initStatus():
     global originStatus
     global statusSet
-    sourceStatus = grammar
+    sourceStatus = copy.deepcopy(grammar)
     for i in range(0, len(sourceStatus)):
         tmp = getGrammarValue(sourceStatus[i])
         if tmp[0] == "":
@@ -72,17 +73,37 @@ def genStatusSet(statusCur):
     # k是下一个符号，v是状态中对应产生式的序号表
     for k, v in nextSymbolMap.items():
         tmpStatus = []
-        # 将接受一个符号都能转移到下一步的项目合在一起右移，并且在不存在重复状态时加入项目集
+        rG = {}
+        # 将接受一个符号都能转移到下一步的项目合在一起右移，并且在不存在重复状态时加入项目集，i代表一个序号
         for i in v:
             tmpV = rightSuffle(getGrammarValue(statusSet[statusCur][i]))
             tmpK = getGrammarKey(statusSet[statusCur][i])
+            # 如果产生了可归约情况，那么记录归约的产生式
+            if tmpV[-1] == ".":
+                if len(tmpV) == 1:
+                    rG = {tmpK: [""]}
+                else:
+                    rG = {tmpK: tmpV[0:-1]}
             if not exsitStatus(tmpStatus, {tmpK: tmpV}):
                 tmpStatus.append({tmpK: tmpV})
             else:
                 continue
+        # tmpStatus代表当前状态接受符号k，转移到的下一个状态
         tmpStatus += extendStatus(tmpStatus)
-        if -1 != exsitStatusSet(tmpStatus):
+        # 我们需要在分析表中记录这个跳转
+        # 对于可归约情况我们需要进行特判
+        nxtCur = exsitStatusSet(tmpStatus)
+        if -1 == nxtCur:
+            # 如果是新状态，那么新状态序号就是statusSet没有append之前的长度
+            fillAnalysTable(statusCur, k, len(statusSet))
             statusSet.append(tmpStatus)
+            # 如果产生的新状态可归约，那么需要填写新状态的可归约情况
+            if rG != {}:
+                fillAnalysTable(len(statusSet), getGrammarKey(rG),
+                                f"r{getPosition(rG)}")
+        # 如果不是新状态，那么就是查找函数返回的位置
+        else:
+            fillAnalysTable(statusCur, k, nxtCur)
     genStatusSet(statusCur+1)
 
 
@@ -167,6 +188,17 @@ def exsitStatus(status, g):
     return False
 
 
+def getPosition(g):
+    k = getGrammarKey(g)
+    v = getGrammarValue(g)
+    for i in range(len(grammar)):
+        tmpK = getGrammarKey(grammar[i])
+        tmpV = getGrammarValue(grammar[i])
+        if k == tmpK and v == tmpV:
+            return i
+    return False
+
+
 def getGrammarValue(g):
     k = list(g.keys())[0]
     v = g[k]
@@ -191,7 +223,19 @@ def outputStatusSet(status):
 
 
 # 创建LR分析表
-def createAnalysTable():
+def fillAnalysTable(statusCur, inputSymbol, nextStatus):
+    # LR分析表接受当前状态和文法符号的输入，按不同的情况有三种结果：
+    # 1. 文法符号为非终结符，需要转移到对应状态
+    # 2. 文法符号为终结符，但无法归约，需要转移到对应状态
+    # 3. 文法符号为终结符，可以归约，进行归约
+    # 首先将数据结构初始化
+    global analyzerTable
+    if statusCur not in analyzerTable:
+        analyzerTable[statusCur] = {}
+    # 然后填写状态表
+    if inputSymbol not in analyzerTable[statusCur]:
+        analyzerTable[statusCur][inputSymbol] = []
+    analyzerTable[statusCur][inputSymbol].append(nextStatus)
 
 
 def readFile(tokenFilepath="token.out", symbolFilepath="symbol.out"):
