@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<config>
+    <source_groups>
+        <source_group_fabf4485-9e16-4b33-a79e-432d8453a305>
+            <exclude_filters>
+                <exclude_filter>__pycache__</exclude_filter>
+            </exclude_filters>
+            <name>Python Source Group</name>
+            <source_extensions>
+                <source_extension>.py</source_extension>
+            </source_extensions>
+            <source_paths>
+                <source_path>./</source_path>
+            </source_paths>
+            <status>enabled</status>
+            <type>Python Source Group</type>
+        </source_group_fabf4485-9e16-4b33-a79e-432d8453a305>
+    </source_groups>
+    <version>8</version>
+</config>
