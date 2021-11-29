@@ -81,7 +81,7 @@ def genStatusSet(statusCur):
             else:
                 continue
         tmpStatus += extendStatus(tmpStatus)
-        if not exsitStatusSet(tmpStatus):
+        if -1 != exsitStatusSet(tmpStatus):
             statusSet.append(tmpStatus)
     genStatusSet(statusCur+1)
 
@@ -100,7 +100,7 @@ def findNext(status):
     return ans
 
 
-# 判断一个状态之前有没有出现过
+# 判断一个状态之前有没有出现过，如果出现过就返回位置
 
 def exsitStatusSet(status):
     for i in range(len(statusSet)):
@@ -109,7 +109,7 @@ def exsitStatusSet(status):
                 break
             if j == len(status)-1:
                 return i
-    return False
+    return -1
 
 
 # 从当前状态拓展点后面的状态，也就是把点后面的非终结符号（在这里是大写字母）加入项集中，还要比较是不是已经有相同的状态在里面
@@ -188,6 +188,10 @@ def outputStatusSet(status):
     lex.spaceser()
     for i in status:
         outputStatus(i)
+
+
+# 创建LR分析表
+def createAnalysTable():
 
 
 def readFile(tokenFilepath="token.out", symbolFilepath="symbol.out"):
