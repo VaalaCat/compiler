@@ -40,6 +40,7 @@ midCode = []
 originStatus = []
 statusSet = [[]]
 analyzerTable = {}
+tmpCnt = 0
 firstSet = {
     "P_": ["id", "if", "while", "float", "(", ""],
     "P": ["id", "if", "while", "float", "(", ""],
@@ -389,8 +390,6 @@ def parseToken(tokens):
     # 初始化栈
     statusStacks.append(0)
     symbolStacks.append("$")
-    # 初始化中间代码起始地址
-    nextAddr = 0
     # 在终结之前一直读取
     while len(tokenBuffer) > 0:
         tmpSymbol = tokenBuffer.pop(0)
@@ -430,7 +429,7 @@ def parseToken(tokens):
                     reducedSymbols.insert(0, tmpS)
                     outputStackStatus(symbolStacks, statusStacks, tmpG)
             # 确定归约的规则后，使用对应的语义规则对其进行处理
-            value = genCode(tmpG, nextAddr, reducedSymbols)
+            value = genCode(tmpG, reducedSymbols)
             # 弹完了记得把新的装进来，这里装进去多一个元素是为了携带信息
             symbolStacks.append(["mid", tmpK, value])
             nextStatus = getNextStatus(tmpK, statusStacks[-1])
@@ -483,8 +482,16 @@ def findSymbol(addr):
             return i
     return None
 
-# 中间代码的生成需要语法分析的同时进行语义分析，
-# 在归约的时候生成代码，这个时候把代码给塞到栈里
+
+# 用于产生临时变量
+
+
+def genTmpVar():
+    global tmpCnt
+    tmpCnt += 1
+    return f"t{tmpCnt}"
+    # 中间代码的生成需要语法分析的同时进行语义分析，
+    # 在归约的时候生成代码，这个时候把代码给塞到栈里
 
 
 def outputCode():
@@ -493,7 +500,7 @@ def outputCode():
 # 传入文法和空闲地址以及被归约的各个符号属性，返回归约符号的属性
 
 
-def genCode(g, nextAddr, reducedSymbols):
+def genCode(g, reducedSymbols):
     # 先从简单的开始
     tmpK = getGrammarKey(g)
     tmpV = getGrammarValue(g)
@@ -504,9 +511,56 @@ def genCode(g, nextAddr, reducedSymbols):
     if tmpK == "F":
         if reducedSymbols[0][0] == "id" or reducedSymbols[0][0] == "digits":
             # token中第二个值为符号表的入口地址
-            return {"value": findSymbol(reducedSymbols[0][1])["value"]}
+            return {"addr": findSymbol(reducedSymbols[0][1])["value"]}
+    # 接下来的要复杂一点，我们之前处理了简单的F
+    # T -> F
+    if tmpK == "T" and tmpV[0] == "F":
+        # token中第三个值为附带值
+        return {"addr": reducedSymbols[0][2]["addr"]}
+    # E -> T
+    if tmpK == "E" and tmpV[0] == "T":
+        return {"addr": reducedSymbols[0][2]["addr"]}
+    # S -> id = E;
+    # 生成赋值语句，在符号表中查找名字生成中间代码
+    # gen(id.value = E.addr)
+    # addr属性表示对应变量的变量名/临时变量名/代数值
+    if tmpK == "S" and tmpV == ["id", "=", "E", ";"]:
+        tmpCode = f"{findSymbol(reducedSymbols[0][1])['value']} = {reducedSymbols[2][2]['addr']}"
+        midCode.append(tmpCode)
+        # 这一句存疑
+        # return {"addr": f"{reducedSymbols[0][2]}"}
+    # E -> E+T
+    # E -> E-T
+    # E.addr = genTmpVar()
+    # gen(E.addr = E.addr OP T.addr)
+    # 计算表达式，生成中间变量
+    if tmpK == "E" and (tmpV == ["E", "+", "T"] or tmpV == ["E", "-", "T"]):
+        tmpVarCode = genTmpVar()
+        tmpCode = f"{tmpVarCode} = {reducedSymbols[0][2]['addr']} {reducedSymbols[1][1]} {reducedSymbols[2][2]['addr']}"
+        midCode.append(tmpCode)
+        return {"addr": tmpVarCode}
     # F -> (E)
-    # 接下来的要复杂一点，我们之前处理了简单的F 
+    if tmpK == "F" and tmpV == ["(", "E", ")"]:
+        return {"addr": reducedSymbols[1][2]["addr"]}
+    # T -> T*F
+    # T -> T/F
+    if tmpK == "T" and (tmpV == ["T", "*", "F"] or tmpV == ["T", "/", "F"]):
+        tmpVarCode = genTmpVar()
+        tmpCode = f"{tmpVarCode} = {reducedSymbols[0][2]['addr']} {reducedSymbols[1][1]} {reducedSymbols[2][2]['addr']}"
+        midCode.append(tmpCode)
+        return {"addr": tmpVarCode}
+
+    # 对于布尔运算我们需要用到跳转
+    # C -> E > E
+    # C -> E < E
+    # C -> E == E
+    # 对于布尔表达式有
+    # C.truelist.append(nextAddr)
+    # C.falselist.append(nextAddr+1)
+    # gen('if' E.addr relop E.addr "goto __")
+    # gen('goto __")
+    if tmpK == "C" and (tmpV == ["E", ">", "E"] or tmpV == ["E", "<", "E"] or tmpV == ["E", "==", "E"]):
+        pass
     pass
 
 
@@ -524,9 +578,6 @@ def genCode(g, nextAddr, reducedSymbols):
 # L -> float
 # L.valuetype = float
 
-# S -> id = E;
-# 生成赋值语句，在符号表中查找名字生成中间代码
-# S.code = id.value = E.finalVar
 
 # S -> if(C)S
 # 使用回填，C是布尔表达式
@@ -534,22 +585,6 @@ def genCode(g, nextAddr, reducedSymbols):
 # S -> if(C)SelseS
 # S -> while(C)S
 # S -> SS
-
-# C -> E > E
-# C -> E < E
-# C -> E == E
-# 对于布尔表达式有
-# C.truelist.append(nextAddr)
-# C.truelist.append(nextAddr+1)
-# C.code = if E[0].addr OP E[1].addr goto __
-# C.code += goto __
-
-# E -> E+T
-# E -> E-T
-# E -> T
-# T -> F
-# T -> T*F
-# T -> T/F
 
 if __name__ == "__main__":
     lex.helloFunc()
