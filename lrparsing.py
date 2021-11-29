@@ -81,6 +81,13 @@ def genStatusSet(statusCur):
             tmpK = getGrammarKey(statusSet[statusCur][0])
             tmpV = getGrammarValue(statusSet[statusCur][0])[:-1]
             fillAnalysTable(statusCur, "$", f"r{getPosition({tmpK: tmpV})}")
+    tmpReduceG = getReduce(statusSet[statusCur])
+    if tmpReduceG != {} and statusCur != 0:
+        tmpK = getGrammarKey(tmpReduceG)
+        tmpV = getGrammarValue(tmpReduceG)[:-1]
+        if len(tmpV) == 0:
+            tmpV = [""]
+        fillAnalysTable(statusCur, "$", f"r{getPosition({tmpK: tmpV})}")
     # k是下一个符号，v是状态中对应产生式的序号表
     for k, v in nextSymbolMap.items():
         tmpStatus = []
@@ -131,8 +138,18 @@ def findNext(status):
         cnt += 1
     return ans
 
+# 判断一个状态中是否有可归约的项
+
+
+def getReduce(status):
+    for i in status:
+        tmpV = getGrammarValue(i)
+        if tmpV[-1] == ".":
+            return i
+    return {}
 
 # 判断一个状态之前有没有出现过，如果出现过就返回位置
+
 
 def exsitStatusSet(status):
     for i in range(len(statusSet)):
@@ -262,6 +279,41 @@ def fillAnalysTable(statusCur, inputSymbol, nextStatus):
         analyzerTable[statusCur][inputSymbol] = []
     analyzerTable[statusCur][inputSymbol].append(nextStatus)
 
+# 用这个函数来查LR分析表
+
+
+def getNextStatus(token, statusCur, mode=""):
+    kwd = []
+    if isinstance(token, list):
+        try:
+            if token[0] == "Keyword":
+                kwd = analyzerTable[statusCur][token[1]]
+            elif token[0] == "OP":
+                kwd = analyzerTable[statusCur][token[1]]
+            elif token[0] == "id":
+                kwd = analyzerTable[statusCur][token[0]]
+            elif token[0] == "digits":
+                kwd = analyzerTable[statusCur][token[0]]
+            else:
+                exit(1)
+        except:
+            if mode == "try":
+                return []
+            exit(1)
+    else:
+        if token in analyzerTable[statusCur]:
+            kwd = analyzerTable[statusCur][token]
+        else:
+            return kwd
+    if len(kwd) > 1:
+        lex.lexWarning(kwd[2]["cur"], kwd[2]["line"], kwd[1])
+    elif len(kwd) == 0:
+        lex.spaceser()
+        print("Fatal Error:",
+              f"Your code is not allowed to compile!\n The error is line {kwd[2]['line']} cur {kwd[2]['cur']}:\n{kwd[1]}")
+        exit(1)
+    return kwd[0]
+
 # 使用分析栈进行分析
 
 
@@ -277,16 +329,48 @@ def parseToken(tokens):
     statusStacks.append(0)
     symbolStacks.append("$")
     # 在终结之前一直读取
+    tmpSymbol = tokenBuffer.pop(0)
+    symbolStacks.append(tmpSymbol)
+    nextStatus = getNextStatus(tmpSymbol, statusStacks[-1])
+    statusStacks.append(nextStatus)
     while len(tokenBuffer) > 0:
         tmpSymbol = tokenBuffer.pop(0)
         # 如果读到终结符就停止
         if tmpSymbol[0] == "stop":
             break
         # LR表第一个括号是状态，第二个括号是输入
-        # 读入符号，使用LR分析表转到对应状态
+        # 如果无法归约则读入符号，使用LR分析表转到对应状态
+        # 归约在前面，如果可以归约就一直归约
+        while True:
+            nextStatus = getNextStatus(
+                "$", statusStacks[-1], "try")
+            if not isinstance(nextStatus, str):
+                break
+            # 获取归约所用的文法
+            tmpG = grammar[int(nextStatus[1:])]
+            # 使用文法归约
+            tmpK = getGrammarKey(tmpG)
+            tmpV = getGrammarValue(tmpG)
+            for i in range(len(tmpV)):
+                # 依次弹栈
+                if tmpV[0] != "":
+                    symbolStacks.pop()
+                    statusStacks.pop()
+            symbolStacks.append(tmpK)
+            nextStatus = getNextStatus(tmpK, statusStacks[-1])
+            statusStacks.append(nextStatus)
+            lex.spaceser()
+            print("symbolStacks:", symbolStacks)
+            print("statusStacks:", statusStacks)
+            print("useReduce:", tmpG)
         symbolStacks.append(tmpSymbol)
-        nextStatus = analyzerTable[statusStacks[-1]][tmpSymbol]
+        nextStatus = getNextStatus(tmpSymbol, statusStacks[-1])
         statusStacks.append(nextStatus)
+
+        lex.spaceser()
+        print("symbolStacks:", symbolStacks)
+        print("statusStacks:", statusStacks)
+        print("useReduce:", tmpG)
 
 
 def readFile(tokenFilepath="token.out", symbolFilepath="symbol.out"):
@@ -298,16 +382,15 @@ def readFile(tokenFilepath="token.out", symbolFilepath="symbol.out"):
     for line in tokenFile:
         if line == "":
             continue
-        tmp = line[1:-1]
-        mid = tmp.index(",")
-        tokens.append((tmp[:mid][1:-1], tmp[mid+2:][1:-1]))
+        tmp = json.loads(line)
+        tokens.append(tmp)
 
     for line in symbolFile:
         if line == "":
             continue
         tmp = json.loads(line)
         symbols.append(tmp)
-    return tokens, symbols
+    return [tokens, symbols]
 
 
 if __name__ == "__main__":
@@ -319,3 +402,4 @@ if __name__ == "__main__":
     # print(getAllGrammarFor("D"))
     # outputStatusSet(statusSet[0]+extendStatus(statusSet[0]))
     genStatusSet(0)
+    parseToken(a)

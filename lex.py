@@ -3,7 +3,7 @@
 # （3）	词法分析后可查看符号表和TOKEN串表；
 # （4）	保存符号表和TOKEN串表（如：文本文件）；
 # （5）	遇到错误时可显示提示信息，然后跳过错误部分继续进行分析。
-
+import json
 errCnt = 0
 warCnt = 0
 
@@ -62,13 +62,14 @@ def lexer(sourceCode):
             cnt = 1
         # 关键词是最优先的
         if isKeyword(previousLetters):
-            finalTokens.append(("Keyword", previousLetters))
+            finalTokens.append(["Keyword", previousLetters,
+                               {"line": line, "cur": cnt}])
             previousLetters = ""
         # 首先是OP,先处理单个无后继符号
         if previousLetters == "":
             # 读到这几个符号那一定是独立符号，直接存
             if i == "+" or i == "-" or i == "*" or i == "/" or i == ";" or i == "(" or i == ")" or i == "'":
-                finalTokens.append(("OP", i))
+                finalTokens.append(["OP", i, {"line": line, "cur": cnt}])
                 continue
             # 这几个符号可能有后继，需要先存着给后面
             elif i == "<" or i == "=" or i == ">" or i == "!":
@@ -79,12 +80,14 @@ def lexer(sourceCode):
             # 如果是等号那组合起来就是OP
             if i == "=":
                 previousLetters += i
-                finalTokens.append(("OP", previousLetters))
+                finalTokens.append(
+                    ["OP", previousLetters, {"line": line, "cur": cnt}])
                 previousLetters = ""
                 continue
             # 后面是空格或者字符/数字，就存了
             elif isSpacer(i) or isLetter(i) or isNumber(i):
-                finalTokens.append(("OP", previousLetters))
+                finalTokens.append(
+                    ["OP", previousLetters, {"line": line, "cur": cnt}])
                 if not isSpacer(i):
                     previousLetters = i
                 else:
@@ -101,7 +104,8 @@ def lexer(sourceCode):
                     exit(1)
         # 最后处理前面传来的OP
         elif maybeOP(previousLetters):
-            finalTokens.append(("OP", previousLetters))
+            finalTokens.append(
+                ["OP", previousLetters, {"line": line, "cur": cnt}])
             if not isSpacer(i):
                 previousLetters = i
             else:
@@ -129,7 +133,8 @@ def lexer(sourceCode):
                     symbols.append(
                         {"addr": str(addr), "value": previousLetters, "type": "id", "line": line, "cur": cnt})
                     idx = addr
-                finalTokens.append(("id", str(idx)))
+                finalTokens.append(
+                    ["id", str(idx), {"line": line, "cur": cnt}])
                 if maybeOP(i):
                     previousLetters = i
                 else:
@@ -144,7 +149,8 @@ def lexer(sourceCode):
                     symbols.append(
                         {"addr": str(addr), "value": previousLetters, "type": "id", "line": line, "cur": cnt})
                     idx = addr
-                finalTokens.append(("id", str(idx)))
+                finalTokens.append(
+                    ["id", str(idx), {"line": line, "cur": cnt}])
                 previousLetters = i
                 continue
         # id处理完过后我们来处理digits
@@ -164,7 +170,8 @@ def lexer(sourceCode):
                 addr = len(symbols)
                 symbols.append(
                     {"addr": str(addr), "value": previousLetters, "type": "digits", "line": line, "cur": cnt})
-                finalTokens.append(("digits", str(addr)))
+                finalTokens.append(
+                    ["digits", str(addr), {"line": line, "cur": cnt}])
                 if maybeOP(i):
                     previousLetters = i
                 else:
@@ -176,10 +183,11 @@ def lexer(sourceCode):
                 addr = len(symbols)
                 symbols.append(
                     {"addr": str(addr), "value": previousLetters, "type": "digits", "line": line, "cur": cnt})
-                finalTokens.append(("digits", str(addr)))
+                finalTokens.append(
+                    ["digits", str(addr), {"line": line, "cur": cnt}])
                 previousLetters = i
                 continue
-    return finalTokens, symbols
+    return [finalTokens, symbols]
 
 
 def lookup(symbols, value):
@@ -198,7 +206,7 @@ def outputTokens(tokens, filepath=""):
             print("Writing tokens to file: " + filepath)
             f = open(filepath, "w")
             for i in tokens:
-                print(i, file=f)
+                print(json.dumps(i), file=f)
         except:
             print("Error:", "Filepath error!")
 

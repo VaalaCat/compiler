@@ -19,5 +19,7 @@ if __name__ == '__main__':
         if abs(l[i]-l[i+1]) != 1:
             print("lackof:", l[i+1]-1)
     f = open("statusSet.out", "w")
+    cnt = 0
     for i in lrparsing.statusSet:
-        print(i, file=f)
+        print(cnt, i, file=f)
+        cnt += 1
