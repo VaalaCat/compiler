@@ -12,6 +12,7 @@ if __name__ == '__main__':
         print(k, ":", v, file=f)
         for kk, vv in v.items():
             if len(vv) > 1:
+                print("冲突!")
                 print(kk, vv)
     for k, v in lrparsing.analyzerTable.items():
         l.append(k)

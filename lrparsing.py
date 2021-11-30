@@ -298,7 +298,11 @@ def outputStackStatus(symbolStacks, statusStacks, tmpG=""):
     print("]")
     print("statusStacks:", statusStacks)
     if tmpG != "":
-        print("useReduce:", tmpG)
+        if isinstance(tmpG, dict):
+            print("useReduce:", getGrammarKey(
+                tmpG), "->", getGrammarValue(tmpG))
+        else:
+            print("read:", tmpG)
 
 
 def outputStatusSet(status):
@@ -363,7 +367,7 @@ def getNextStatus(token, statusCur, mode=""):
                 exit(1)
         except:
             if mode == "try":
-                if LOGLEVEL >= 1:
+                if LOGLEVEL >= 3:
                     print("INFO:", "Vaala's LR machine fix an Error at:")
                     print(
                         f"line {token[2]['line']} cur {token[2]['cur']}: {token[1]}")
@@ -406,9 +410,9 @@ def parseToken(tokens):
         if isinstance(nextStatus, int):
             symbolStacks.append(tmpSymbol)
             statusStacks.append(nextStatus)
-
-        outputStackStatus(symbolStacks, statusStacks)
-
+        if tmpSymbol == "ACCEPT":
+            break
+        outputStackStatus(symbolStacks, statusStacks, tmpSymbol)
         # 如果无法归约则读入符号，使用LR分析表转到对应状态
         # 归约在前面，如果可以归约就一直归约
         while True:
@@ -647,7 +651,6 @@ def genCode(g, reducedSymbols):
 # D -> e
 # D -> Lid;D
 # 填符号表，在 id 的值类型填写 valuetype为 L.valuetype
-
 # L -> int
 # L.valuetype = int
 # L -> float
