@@ -557,34 +557,66 @@ def genCode(g, reducedSymbols):
     # 对于布尔表达式有
     # C.truelist.append(nextAddr)
     # C.falselist.append(nextAddr+1)
-    # gen('if' E.addr relop E.addr "goto __")
-    # gen('goto __")
+    # gen(if E.addr relop E.addr goto __)
+    # gen(goto __)
     if tmpK == "C" and (tmpV == ["E", ">", "E"] or tmpV == ["E", "<", "E"] or tmpV == ["E", "==", "E"]):
-        pass
+        trueList = []
+        falseList = []
+        trueList.append(len(midCode))
+        falseList.append(len(midCode)+1)
+        tmpCode = f"if {reducedSymbols[0][2]['addr']} {reducedSymbols[1][1]} {reducedSymbols[2][2]['addr']} goto __"
+        midCode.append(tmpCode)
+        midCode.append("goto __")
+        return {"trueList": trueList, "falseList": falseList}
+
+    # S -> if(C)MS
+    # 使用回填，C是布尔表达式
+    # backpatch(B.truelist, M.to);
+    # S.nextList=merge(B.falselist, S.nextlist)
+    if tmpK == "S" and tmpV == ["if", "(", "C", ")", "M", "S"]:
+        tmpC = reducedSymbols[2][2]
+        # 先回填
+        for i in tmpC["trueList"]:
+            midCode[i] = midCode[i].replace(
+                "__", str(reducedSymbols[4][2]["to"]))
+        tmpNextList = []
+        tmpNextList += tmpC["falseList"]
+        if None != reducedSymbols[5][2]:
+            if "nextList" in reducedSymbols[5][2]:
+                tmpNextList += reducedSymbols[5][2]["nextList"]
+
+    # S -> if(C)SelseS
+    if tmpK == "S" and tmpV == ["if", "(", "C", ")", "M", "S", "N", "else", "M", "S"]:
+        tmpC = reducedSymbols[2][2]
+        for i in tmpC["trueList"]:
+            midCode[i] = midCode[i].replace(
+                "__", str(reducedSymbols[4][2]["to"])
+            )
+        for i in tmpC["falseList"]:
+            midCode[i] = midCode[i].replace(
+                "__", str(reducedSymbols[4][2]["to"])
+            )
+        tmpNextList = []
+        tmpNextList += reducedSymbols[6][2]["to"]
+        if None != reducedSymbols[5][2]:
+            if "nextList" in reducedSymbols[5][2]:
+                tmpNextList += reducedSymbols[5][2]["nextList"]
+        if None != reducedSymbols[9][2]:
+            if "nextList" in reducedSymbols[9][2]:
+                tmpNextList += reducedSymbols[9][2]["nextList"]
+
+    # S -> SS
+    # backpatch( S1.nextlist, M.to );
+    # S.nextlist = S2.nextlist
+    if tmpK == "S" and tmpK == ["S", "M", "S"]:
+        for i in reducedSymbols[0][2]["nextList"]:
+            # 回填
+            midCode[i] = midCode[i].replace(
+                "__", str(reducedSymbols[1][2]["to"]))
+        return {"nextList": reducedSymbols[2][2]["nextList"]}
+
     pass
 
-
-# 对于每一个文法我们需要构造一个中间代码生成规则
-# P_ -> P
-
-# P -> D
-
-# D -> e
-# D -> Lid;D
-# 填符号表，在 id 的值类型填写 valuetype为 L.valuetype
-
-# L -> int
-# L.valuetype = int
-# L -> float
-# L.valuetype = float
-
-
-# S -> if(C)S
-# 使用回填，C是布尔表达式
-
-# S -> if(C)SelseS
-# S -> while(C)S
-# S -> SS
 
 if __name__ == "__main__":
     lex.helloFunc()
@@ -597,3 +629,4 @@ if __name__ == "__main__":
     genStatusSet(0)
     parseToken(tokens)
     lex.finalReport()
+    print(midCode)
