@@ -11,9 +11,9 @@ actionSymbol = ["=", "<", ">", "-", "+", ";", "*", "/", "==", "(", ")", "$",
                 "while", "if", "else", "id", "digits", "float", "int"]
 grammar = [
     {"P_": ["P"]},
-    {"P": ["D", "S"]},
+    {"P": ["M", "D", "S"]},
     {"D": [""]},
-    {"D": ["L", "id", ";", "D"]},
+    {"D": ["L", "id", ";", "N", "D"]},
     {"L": ["int"]},
     {"L": ["float"]},
     {"S": ["id", "=", "E", ";"]},
@@ -43,36 +43,69 @@ originStatus = []
 statusSet = [[]]
 analyzerTable = {}
 tmpCnt = 0
-firstSet = {
-    "C": ["digits", "id", "("],
-    "D": ["int", "float", ""],
-    "E": ["digits", "id", "("],
-    "F": ["digits", "id", "("],
-    "L": ["int", "float"],
-    "M": [""],
-    "N": [""],
-    "O": [""],
-    "P": ["if", "while", "int", "float", "id", ""],
-    "S": ["if", "while", "id", ""],
-    "T": ["digits", "id", "("],
-    "P_": ["if", "while", "int", "float", "id", ""]
-}
-followSet = {
-    "C": [")"],
-    "D": ["if", "while", "id", "$"],
-    "E": ["==", ">", "<", "+", "-", ";", ")"],
-    "F": ["==", ">", "<", "+", "-", "*", "/", ";", ")"],
-    "L": ["id"],
-    "M": ["if", "else", "while", "id", "(", "$"],
-    "N": ["else"],
-    "O": ["if", "while", "int", "float", "id", "$"],
-    "P": ["$"],
-    "S": ["if", "else", "while", "id", "$"],
-    "T": ["==", ">", "<", "+", "-", "*", "/", ";", ")"],
-    "P_": ["$"]
-}
+firstSet = {}
+followSet = {}
 LOGLEVEL = 0
 # 初始化状态，也就是加个点
+
+
+def getFirst(A):
+    if A in actionSymbol:
+        return {A}
+    if A not in firstSet:
+        firstSet[A] = set()
+    else:
+        return firstSet[A]
+    for i in grammar:
+        if getGrammarKey(i) == A:
+            if len(getGrammarValue(i)) == 0:
+                firstSet[A].add('')
+            elif getGrammarValue(i)[0] != A:
+                flag = 1
+                for j in getGrammarValue(i):
+                    temp_set = getFirst(j)
+                    firstSet[A] = firstSet[A] | (temp_set - {''})
+                    if '' not in temp_set:
+                        flag = 0
+                        break
+                if flag == 1:
+                    firstSet[A].add('')
+    return firstSet[A]
+
+
+def getFollow(A):
+    if A not in followSet:
+        followSet[A] = set()
+    else:
+        return followSet[A]
+
+    if A == 'P':
+        followSet[A].add('$')
+        return followSet[A]
+
+    for i in grammar:
+        if A in getGrammarValue(i):
+            idx = getGrammarValue(i).index(A)
+            if idx != (len(getGrammarValue(i)) - 1):
+                flag = 1
+
+                for j in range(idx + 1, len(getGrammarValue(i))):
+                    temp_set = getFirst(getGrammarValue(i)[j])
+                    followSet[A] = followSet[A] | (temp_set - {''})
+
+                    if '' not in temp_set:
+                        flag = 0
+                        break
+
+                if flag == 1:
+                    if getGrammarKey(i) != A:
+                        followSet[A] = followSet[A] | (
+                            getFollow(getGrammarKey(i)))
+
+            elif getGrammarKey(i) != A:
+                followSet[A] = followSet[A] | (getFollow(getGrammarKey(i)))
+
+    return followSet[A]
 
 
 def initStatus():
@@ -330,7 +363,7 @@ def fillAnalysTable(statusCur, inputSymbol, nextStatus):
             return
         tmpG = grammar[int(nextStatus.replace("r", ""))]
         tmpK = getGrammarKey(tmpG)
-        for i in followSet[tmpK]:
+        for i in getFollow(tmpK):
             # if i == "else":
             #     continue
             if i not in analyzerTable[statusCur]:
@@ -666,6 +699,7 @@ if __name__ == "__main__":
     # a, b = readFile()
     initStatus()
     genStatusSet(0)
+    getFirst("A")
     parseToken(tokens)
     lex.finalReport()
     print(midCode)
