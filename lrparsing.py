@@ -495,7 +495,8 @@ def genTmpVar():
 
 
 def outputCode():
-    pass
+    for i in range(len(midCode)):
+        print(i, ":", midCode[i])
 
 # 传入文法和空闲地址以及被归约的各个符号属性，返回归约符号的属性
 
@@ -618,15 +619,22 @@ def genCode(g, reducedSymbols):
     pass
 
 
+def ist():
+    global midCode
+    midCode = ["a = 2", "b = 1", "if a > b goto 5", "goto 8",
+               "t1 = a + b", "c = t1", "goto 0", "t2 = a - b", "c = t2"]
+
+
 if __name__ == "__main__":
     lex.helloFunc()
     lex.spaceser()
     sourceCode = lex.read(mode="file", filepath="test2.cpp")
     tokens, symbols = lex.lexer(sourceCode)
-    LOGLEVEL = 2
+    LOGLEVEL = 0
     # a, b = readFile()
     initStatus()
     genStatusSet(0)
     parseToken(tokens)
     lex.finalReport()
-    print(midCode)
+    ist()
+    outputCode()
