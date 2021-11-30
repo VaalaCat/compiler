@@ -17,10 +17,10 @@ grammar = [
     {"L": ["int"]},
     {"L": ["float"]},
     {"S": ["id", "=", "E", ";"]},
-    {"S": ["if", "(", "C", ")", "S"]},
-    {"S": ["if", "(", "C", ")", "S", "else", "S"]},
-    {"S": ["while", "(", "C", ")", "S"]},
-    {"S": ["S", "S"]},
+    {"S": ["if", "(", "C", ")", "M", "S"]},
+    {"S": ["if", "(", "C", ")", "M", "S", "N", "else", "M", "S"]},
+    {"S": ["while", "M", "(", "C", ")", "M", "S"]},
+    {"S": ["S", "M", "S"]},
     {"C": ["E", ">", "E"]},
     {"C": ["E", "<", "E"]},
     {"C": ["E", "==", "E"]},
@@ -32,7 +32,9 @@ grammar = [
     {"T": ["T", "/", "F"]},
     {"F": ["(", "E", ")"]},
     {"F": ["id"]},
-    {"F": ["digits"]}
+    {"F": ["digits"]},
+    {"M": [""]},
+    {"N": [""]}
 ]
 symbols = []
 tokens = []
@@ -42,26 +44,32 @@ statusSet = [[]]
 analyzerTable = {}
 tmpCnt = 0
 firstSet = {
-    "P_": ["id", "if", "while", "float", "(", ""],
-    "P": ["id", "if", "while", "float", "(", ""],
-    "D": ["float", "int", ""],
+    "C": ["digits", "id", "("],
+    "D": ["int", "float", ""],
+    "E": ["digits", "id", "("],
+    "F": ["digits", "id", "("],
     "L": ["int", "float"],
-    "S": ["id", "if", "while"],
-    "C": ["(", "id", "digits"],
-    "E": ["(", "id", "digits"],
-    "T": ["(", "id", "digits"],
-    "F": ["(", "id", "digits"]
+    "M": [""],
+    "N": [""],
+    "O": [""],
+    "P": ["if", "while", "int", "float", "id", ""],
+    "S": ["if", "while", "id", ""],
+    "T": ["digits", "id", "("],
+    "P_": ["if", "while", "int", "float", "id", ""]
 }
 followSet = {
     "C": [")"],
-    "D": ["if", "while", "id"],
+    "D": ["if", "while", "id", ""],
     "E": ["==", ">", "<", "+", "-", ";", ")"],
     "F": ["==", ">", "<", "+", "-", "*", "/", ";", ")"],
     "L": ["id"],
-    "P": ["$"],
-    "S": ["else", ";", "$"],
+    "M": ["if", "else", "while", "id", "(", ""],
+    "N": ["else"],
+    "O": ["if", "while", "int", "float", "id", ""],
+    "P": [""],
+    "S": ["if", "else", "while", "id", ""],
     "T": ["==", ">", "<", "+", "-", "*", "/", ";", ")"],
-    "P_": ["$"]
+    "P_": [""]
 }
 LOGLEVEL = 0
 # 初始化状态，也就是加个点
@@ -319,8 +327,8 @@ def fillAnalysTable(statusCur, inputSymbol, nextStatus):
         tmpG = grammar[int(nextStatus.replace("r", ""))]
         tmpK = getGrammarKey(tmpG)
         for i in followSet[tmpK]:
-            if i == "else":
-                continue
+            # if i == "else":
+            #     continue
             if i not in analyzerTable[statusCur]:
                 analyzerTable[statusCur][i] = []
                 analyzerTable[statusCur][i].append(nextStatus)
@@ -504,6 +512,19 @@ def genCode(g, reducedSymbols):
     # 先从简单的开始
     tmpK = getGrammarKey(g)
     tmpV = getGrammarValue(g)
+
+    # M -> e
+    if tmpK == "M" and tmpV[0] == "":
+        return {"to": len(midCode)}
+    # N -> e
+    # N.nextList.append(nextAddr);
+    # gen(goto __"):
+    if tmpK == "N" and tmpV[0] == "":
+        tmpNextList = []
+        tmpNextList.append(len(midCode))
+        midCode.append("goto __")
+        return {"nextList": tmpNextList}
+
     # F -> id
     # F -> digits
     # 单纯的标识符号，如果使用这两个产生式归约的话传递一个值就行了
@@ -557,10 +578,64 @@ def genCode(g, reducedSymbols):
     # 对于布尔表达式有
     # C.truelist.append(nextAddr)
     # C.falselist.append(nextAddr+1)
-    # gen('if' E.addr relop E.addr "goto __")
-    # gen('goto __")
+    # gen(if E.addr relop E.addr goto __)
+    # gen(goto __)
     if tmpK == "C" and (tmpV == ["E", ">", "E"] or tmpV == ["E", "<", "E"] or tmpV == ["E", "==", "E"]):
-        pass
+        trueList = []
+        falseList = []
+        trueList.append(len(midCode))
+        falseList.append(len(midCode)+1)
+        tmpCode = f"if {reducedSymbols[0][2]['addr']} {reducedSymbols[1][1]} {reducedSymbols[2][2]['addr']} goto __"
+        midCode.append(tmpCode)
+        midCode.append("goto __")
+        return {"trueList": trueList, "falseList": falseList}
+
+    # S -> if(C)MS
+    # 使用回填，C是布尔表达式
+    # backpatch(B.truelist, M.to);
+    # S.nextList=merge(B.falselist, S.nextlist)
+    if tmpK == "S" and tmpV == ["if", "(", "C", ")", "M", "S"]:
+        tmpC = reducedSymbols[2][2]
+        # 先回填
+        for i in tmpC["trueList"]:
+            midCode[i] = midCode[i].replace(
+                "__", str(reducedSymbols[4][2]["to"]))
+        tmpNextList = []
+        tmpNextList += tmpC["falseList"]
+        if None != reducedSymbols[5][2]:
+            if "nextList" in reducedSymbols[5][2]:
+                tmpNextList += reducedSymbols[5][2]["nextList"]
+
+    # S -> if(C)SelseS
+    if tmpK == "S" and tmpV == ["if", "(", "C", ")", "M", "S", "N", "else", "M", "S"]:
+        tmpC = reducedSymbols[2][2]
+        for i in tmpC["trueList"]:
+            midCode[i] = midCode[i].replace(
+                "__", str(reducedSymbols[4][2]["to"])
+            )
+        for i in tmpC["falseList"]:
+            midCode[i] = midCode[i].replace(
+                "__", str(reducedSymbols[4][2]["to"])
+            )
+        tmpNextList = []
+        tmpNextList += reducedSymbols[6][2]["to"]
+        if None != reducedSymbols[5][2]:
+            if "nextList" in reducedSymbols[5][2]:
+                tmpNextList += reducedSymbols[5][2]["nextList"]
+        if None != reducedSymbols[9][2]:
+            if "nextList" in reducedSymbols[9][2]:
+                tmpNextList += reducedSymbols[9][2]["nextList"]
+
+    # S -> SS
+    # backpatch( S1.nextlist, M.to );
+    # S.nextlist = S2.nextlist
+    if tmpK == "S" and tmpK == ["S", "M", "S"]:
+        for i in reducedSymbols[0][2]["nextList"]:
+            # 回填
+            midCode[i] = midCode[i].replace(
+                "__", str(reducedSymbols[1][2]["to"]))
+        return {"nextList": reducedSymbols[2][2]["nextList"]}
+
     pass
 
 
@@ -579,17 +654,10 @@ def genCode(g, reducedSymbols):
 # L.valuetype = float
 
 
-# S -> if(C)S
-# 使用回填，C是布尔表达式
-
-# S -> if(C)SelseS
-# S -> while(C)S
-# S -> SS
-
 if __name__ == "__main__":
     lex.helloFunc()
     lex.spaceser()
-    sourceCode = lex.read(mode="file", filepath="test2.cpp")
+    sourceCode = lex.read(mode="file", filepath="test.cpp")
     tokens, symbols = lex.lexer(sourceCode)
     LOGLEVEL = 2
     # a, b = readFile()
@@ -597,3 +665,4 @@ if __name__ == "__main__":
     genStatusSet(0)
     parseToken(tokens)
     lex.finalReport()
+    print(midCode)
