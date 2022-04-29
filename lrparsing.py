@@ -619,11 +619,6 @@ def genCode(g, reducedSymbols):
     pass
 
 
-def ist():
-    global midCode
-    midCode = ["a = 2", "b = 1", "if a > b goto 5", "goto 8",
-               "t1 = a + b", "c = t1", "goto 0", "t2 = a - b", "c = t2"]
-
 
 if __name__ == "__main__":
     lex.helloFunc()
@@ -636,5 +631,4 @@ if __name__ == "__main__":
     genStatusSet(0)
     parseToken(tokens)
     lex.finalReport()
-    ist()
     outputCode()
